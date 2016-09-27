@@ -1,0 +1,119 @@
+import numpy
+from network.node import Node
+from network.edge import Edge
+
+NUMBER_OF_STATE = 13
+
+class State:
+    # selectedGenes : List of Node
+    # candidateGene : Node
+    # sampleIndex : int
+
+    def __init__(self, initialGenes):
+        self.selectedGenes = initialGenes
+        self.sampleIndex = 0
+
+    def setSampleIndex(self, sampleIndex):
+        self.sampleIndex = sampleIndex
+
+    def clear(self):
+        self.selectedGenes = []
+        self.candidateGene = None
+
+    def setCandidateGene(self, candidateGene):
+        self.candidateGene = candidateGene
+
+    def getSelectedGenes(self):
+        return self.selectedGenes
+
+    def handleActionAccept(self):
+        if self.candidateGene not in self.selectedGenes:
+            self.selectedGenes.append(self.candidateGene)
+        self.candidateGene = None
+
+    def handleActionPass(self):
+        self.candidateGene = None
+
+    def handleActionReject(self):
+        if self.candidateGene in self.selectedGenes:
+            self.selectedGenes.remove(self.candidateGene)
+        self.candidateGene = None
+
+    #########################################################
+    # 0: Expr of candidate gene                             #
+    # 1: The number of 1st neighborhood of candidate gene   #
+    # 2: Average expr of 1st neighborhood of candidate gene #
+    # 3: Std expr of 1st neighborhood of candidate gene     #
+    # 4: The number of 2nd neighborhood of candidate gene   #
+    # 5: Average expr of 2nd neighborhood of candidate gene #
+    # 6: Std expr of 2nd neighborhood of candidate gene     #
+    # 7: The number of selected genes                       #
+    # 8: Average expr of selected genes                     #
+    # 9: Std expr of selected genes                         #
+    # 10: The number of 1st neighborhood of selected genes  #
+    # 11: Average expr of 1st neighborhood of selected genes#
+    # 12: Std expr of 1st neighborhood of selected genes    #
+    #########################################################
+    def asInput(self):
+        result = []
+        candidateExpr = self.candidateGene.getValue(self.sampleIndex)
+        result.append(candidateExpr) # 0
+
+        neighborhood = self.candidateGene.getNeighborhood()
+        neighborhoodSize = len(neighborhood)
+        result.append(neighborhoodSize) # 1
+
+        mean, std = self.getNeighborhoodStat(neighborhood)
+        result.append(mean) # 2
+        result.append(std) # 3
+
+        secondNeighborhood = set()
+        for n in neighborhood:
+            secondNeighborhood.update(set(n.getNeighborhood()))
+        secondNeighborhood.difference_update(set(neighborhood))
+
+        secondSize = len(secondNeighborhood)
+        result.append(secondSize) # 4
+
+        secondStat = self.getNeighborhoodStat(secondNeighborhood)
+        result.append(secondStat[0]) # 5
+        result.append(secondStat[1]) # 6
+
+        selectedSize = len(self.selectedGenes)
+        result.append(selectedSize) # 7
+
+        selectedStat = self.getNeighborhoodStat(self.selectedGenes)
+        result.append(selectedStat[0]) # 8
+        result.append(selectedStat[1]) # 9
+
+        selectedNeighborhood = set()
+        for g in self.selectedGenes:
+            selectedNeighborhood.update(set(g.getNeighborhood()))
+
+        selectedNeighborhoodSize = len(selectedNeighborhood)
+        result.append(selectedNeighborhoodSize) # 10
+
+        mean, std = self.getNeighborhoodStat(selectedNeighborhood)
+        result.append(mean) # 11
+        result.append(std) # 12
+
+        if len(result) != NUMBER_OF_STATE:
+            #TODO handle error
+            print("wrong state")
+
+        return result
+
+    def getNeighborhoodStat(self, neighborhood):
+        mean = 0.0
+        std = 0.0
+        if len(neighborhood) > 0:
+            exprs = [n.getValue(self.sampleIndex) for n in neighborhood]
+            mean = numpy.mean(exprs)
+            std = numpy.std(exprs)
+
+        return mean, std
+    
+    def printOut(self):
+        string = "- candidate : " + self.candidateGene.getName() + "\n"
+        string += "- selected : " + str([n.getName() for n in self.selectedGenes]) + "\n"
+        return string
